@@ -16,6 +16,7 @@ wait_time = -1
 
 print("Once you press enter you will have the ammount of time specified to do your movemnts")
 print("It will begin recording immediatley and will stop after the given time")
+print("It is recommended to add some dead time to the start of your movements so you can ctrl+c the program in an emergency")
 while wait_time < 0:
     try: wait_time = int(input("How much time will you need? (s) "))
     except: print("please enter a positive number")
