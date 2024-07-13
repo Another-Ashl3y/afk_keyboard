@@ -1,3 +1,5 @@
+import tkinter as tk
+from tkinter import ttk
 from pynput.keyboard import Key, Events
 from pynput.keyboard import Listener as Kl
 from pynput.keyboard import Controller as Kc
@@ -6,25 +8,43 @@ from pynput.mouse import Controller as Mc
 from pynput.mouse import Listener as Ml
 import sys
 import time
+import threading
 
 
+
+root = tk.Tk()
+root.title("afk keyboard tool")
+root.resizable(False, False)
+root.attributes('-topmost', True)
+root.update()
+
+frm = ttk.Frame(root, padding=10)
+frm.grid()
+
+
+movements = []
+
+recording_time = -1
+start = 0
+timing_text = tk.StringVar()
+
+
+ttk.Label(frm,text=" Welcome to the \nafk keyboard tool").grid(column=2, row=0)
+ttk.Label(frm,text="Enter recording time: ").grid(column=1,row=1)
+recording_time_entry = ttk.Entry(frm)
+recording_time_entry.grid(column=3,row=1)
+ttk.Label(frm,text="Enter iterations (-1 for infinite): ").grid(column=1,row=2)
+iterations_entry = ttk.Entry(frm)
+iterations_entry.grid(column=3,row=2)
+timings_label = ttk.Label(frm, textvariable=timing_text)
+timings_label.grid(column=3, row=3)
 mouse = Mc()
 keyboard = Kc()
 
-movements = []
-wait_time = -1
+ttk.Label(frm,text="Don't touch this window\n       When recording").grid(column=2, row=4)
 
-print("Once you press enter you will have the ammount of time specified to do your movemnts")
-print("It will begin recording immediatley and will stop after the given time")
-print("It is recommended to add some dead time to the start of your movements so you can ctrl+c the program in an emergency")
-while wait_time < 0:
-    try: wait_time = int(input("How much time will you need? (s) "))
-    except: print("please enter a positive number")
-
-start = time.time()
 
 def on_move(x, y):
-    print(len(movements))
     movements.append((f"M {mouse.position[0]} {mouse.position[1]}", time.time()-start))
 
 def on_click(x, y, button, pressed):
@@ -68,73 +88,112 @@ def move(full_instruct):
         case 'r':
             keyboard.release(full_instruct[2])
 
-def exit_listener(key):
-    if key == Key.esc:
-        print("Thanks for using this tool")
-        sys.exit()
+def record():
+    movements.clear()
+    wait_time = -1
 
-
-# Collect events until released
-keyboard_listener = Kl(
-        on_press=on_press,
-        on_release=on_release)
-keyboard_listener.start()
-
-listener = Ml(
-    on_move=on_move,
-    on_click=on_click,
-    on_scroll=on_scroll)
-listener.start()
-
-time.sleep(wait_time)
-keyboard_listener.stop()
-listener.stop()
-
-print("Recording complete")
-print("Starting in...")
-time.sleep(0.5)
-for i in range(3,0,-1):
-    print(f"\t{i}")
-    time.sleep(1)
-movements.pop(0)
-
-iterations = None
-
-print("How many times do you want to loop this? (negative value for infinite) ")
-print("If you would like to stop immediatley then press escape")
-while iterations == None:
-    try: iterations = int(input("Iterations > "))
-    except: print("please enter a number")
-
-
-keyboard_listener = Kl(
-        on_press=exit_listener)
-keyboard_listener.start()
-
-if iterations < 0:
-    while True:
-        index = 0
-        start = time.time()
-        while index < len(movements):
-            #for event in Events():
-            #    if event.key == Key.esc:
-            #        print("Thanks for using this tool")
-            #        sys.exit()
-            current_instruction = movements[index]
-            if time.time()-start > current_instruction[1]:
-                index += 1
-                move(current_instruction)
-else:
-    for _ in range(iterations):
-        index = 0
-        start = time.time()
-        while index < len(movements):
-            #for event in Events():
-            #    if event.key == Key.esc:
-            #        print("Thanks for using this tool")
-            #        sys.exit()
-            current_instruction = movements[index]
-            if time.time()-start > current_instruction[1]:
-                index += 1
-                move(current_instruction)
+    print("Once you press enter you will have the ammount of time specified to do your movemnts")
+    print("It will begin recording immediatley and will stop after the given time")
     
+    try:
+        wait_time = float(recording_time_entry.get())
+        if wait_time < 0:
+            return 0
+    except:
+        print("please enter a positive number")
+        return 0
+    global start
+    start = time.time()
+
+    # Collect events until released
+    keyboard_listener = Kl(
+            on_press=on_press,
+            on_release=on_release)
+    keyboard_listener.start()
+
+    listener = Ml(
+        on_move=on_move,
+        on_click=on_click,
+        on_scroll=on_scroll)
+    listener.start()
+
+    for i in range(int(wait_time*100), 0, -1):
+        timing_text.set(f"{i/100}s")
+        root.update_idletasks()
+        time.sleep(1/100)
+        root.update()
+    keyboard_listener.stop()
+    listener.stop()
+
+    print("Recording complete")
+
+def loop():
+    iterations = None
+
+    try:
+        iterations = int(iterations_entry.get())
+    except:
+        print("please enter a number")
+        return 0
+
+
+    print("Starting in...")
+    time.sleep(0.5)
+    for i in range(3*100,0,-1):
+        timing_text.set(f"Starting in{i/100}s")
+        root.update_idletasks()
+        time.sleep(1/100)
+        root.update()
+    if len(movements) > 0:
+        movements.pop(0)
+
+    if iterations < 0:
+        while True:
+            index = 0
+            start = time.time()
+            while index < len(movements):
+                timing_text.set(f"{index}")
+                root.update_idletasks()
+                root.update()
+                #for event in Events():
+                #    if event.key == Key.esc:
+                #        print("Thanks for using this tool")
+                #        sys.exit()
+                current_instruction = movements[index]
+                if time.time()-start > current_instruction[1]:
+                    index += 1
+                    move(current_instruction)
+    else:
+        for _ in range(iterations):
+            index = 0
+            start = time.time()
+            while index < len(movements):
+                timing_text.set(f"{index}")
+                root.update_idletasks()
+                root.update()
+                #for event in Events():
+                #    if event.key == Key.esc:
+                #        print("Thanks for using this tool")
+                #        sys.exit()
+                current_instruction = movements[index]
+                if time.time()-start > current_instruction[1]:
+                    index += 1
+                    move(current_instruction)
+
+def play_on_thread():
+    loop()
+def record_on_thread():
+    record()
+
+def destroy():
+    root.destroy()
+    print("\nthanks for using the tool")
+    quit()
+
+
+ttk.Button(frm, text="Quit", command=destroy).grid(column=2, row=5)
+ttk.Button(frm, text="Record", command=record_on_thread).grid(column=1, row=4)
+ttk.Button(frm, text="Play", command=play_on_thread).grid(column=3, row=4)
+
+
+root.mainloop()
